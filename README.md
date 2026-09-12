@@ -1,4 +1,4 @@
-# InterLoom — Smart Shortlisting Engine
+# SmartHire — Smart Shortlisting Engine
 
 Ranks a batch of resumes against one job description using **both** keyword and
 semantic matching, and explains every score down to the sentence that produced
