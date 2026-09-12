@@ -7,7 +7,200 @@
 
 import { useEffect, useState } from 'react'
 import { Path } from './Detail'
-import { delta, num } from '../lib/ui'
+import { GapScatter } from './Charts'
+import { delta, num, pct } from '../lib/ui'
+
+/* ══ Side by side ═══════════════════════════════════════════════════════ */
+
+/**
+ * Two candidates, one skill list.
+ *
+ * The board answers "who is ahead"; this answers "on what". Only the rows where
+ * exactly one of the two holds the skill are drawn at full strength — the rows
+ * they agree on are the ones that explain nothing about the gap between them.
+ */
+export function DiffPanel({ a, b, onClose }) {
+  const cellsOf = (c) => Object.fromEntries(c.primitives.cells.map((x) => [x.skill_id, x]))
+  const ca = cellsOf(a)
+  const cb = cellsOf(b)
+  const held = (status) => status === 'MATCHED' || status === 'INFERRED'
+
+  const ids = [...new Set([...Object.keys(ca), ...Object.keys(cb)])].sort(
+    (x, y) => (cb[y]?.weight ?? 0) - (cb[x]?.weight ?? 0) || x.localeCompare(y),
+  )
+
+  const lead = a.score >= b.score ? a : b
+  const trail = a.score >= b.score ? b : a
+  const decisive = ids.filter((id) => held(ca[id]?.status) !== held(cb[id]?.status))
+
+  return (
+    <div className="panel" style={{ marginBottom: 'var(--s4)' }}>
+      <div className="panel__head">
+        <div className="panel__title">Side by side</div>
+        <div className="panel__sub">{decisive.length} skills separate them</div>
+        <button className="btn btn--ghost btn--icon" onClick={onClose} aria-label="Close">×</button>
+      </div>
+
+      <div className="panel__body">
+        <p style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.55 }}>
+          <strong>{lead.name}</strong> leads by {(lead.score - trail.score).toFixed(1)} points.
+          {' '}Keyword {lead.k_score.toFixed(2)} against {trail.k_score.toFixed(2)},
+          {' '}semantic {lead.m_score.toFixed(2)} against {trail.m_score.toFixed(2)}.
+        </p>
+      </div>
+
+      <div className="panel__body" style={{ paddingTop: 0 }}>
+        <div className="diff">
+          <div className="diff__who">{a.name}</div>
+          <div />
+          <div className="diff__who diff__who--right">{b.name}</div>
+
+          {ids.map((id) => {
+            const x = ca[id]
+            const y = cb[id]
+            const only = held(x?.status) !== held(y?.status)
+            return (
+              <div key={id} style={{ display: 'contents' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <span className={`chip chip--${(x?.status ?? 'MISSING').toLowerCase()}`}
+                        style={{ opacity: only && held(x?.status) ? 1 : 0.4 }}
+                        title={x?.evidence || 'No evidence'}>
+                    {x?.status === 'MATCHED' ? '●' : x?.status === 'INFERRED' ? '◐' : '○'}
+                  </span>
+                </div>
+                <div className={`diff__skill ${only ? 'diff__skill--decisive' : ''}`}>
+                  {x?.label ?? y?.label}
+                </div>
+                <div>
+                  <span className={`chip chip--${(y?.status ?? 'MISSING').toLowerCase()}`}
+                        style={{ opacity: only && held(y?.status) ? 1 : 0.4 }}
+                        title={y?.evidence || 'No evidence'}>
+                    {y?.status === 'MATCHED' ? '●' : y?.status === 'INFERRED' ? '◐' : '○'}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <p className="note" style={{ marginTop: 10 }}>
+          ● stated · ◐ demonstrated without being named · ○ no evidence. Rows both
+          candidates hold are dimmed — they cannot explain the gap.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ══ Cross-channel signals ═════════════════════════════════════════════ */
+
+/**
+ * The two channels disagreeing, plotted and then written out.
+ *
+ * A keyword filter and an embedding model rank the same pool differently, and
+ * the gap between the two positions is the only place a hidden gem can be
+ * found. The scatter puts score against how much of the required set is still
+ * missing; the cards below name the specific candidates the channels argue
+ * about and say, in numbers, what the argument is.
+ */
+export function SignalsView({ candidates, selected, onSelect }) {
+  const gems = candidates.filter((c) => c.flag === 'HIDDEN_GEM')
+  const surface = candidates.filter((c) => c.flag === 'SURFACE_MATCH')
+  const consensus = candidates.length - gems.length - surface.length
+
+  return (
+    <>
+      <div className="panel">
+        <div className="panel__head">
+          <div className="panel__title">Skill-gap map</div>
+          <div className="panel__sub">{candidates.length} candidates</div>
+        </div>
+        <div className="panel__body">
+          <p className="note" style={{ marginBottom: 10 }}>
+            Match score across, unmet required skills down. Dot size is how much
+            text the resume gave the engine to work with, so a small dot far
+            right is a strong score built on thin evidence. Click a dot to open
+            that candidate.
+          </p>
+          <GapScatter candidates={candidates} selectedId={selected?.doc_id}
+                      onSelect={onSelect} />
+          <div className="legend">
+            {[['Hidden gem', 'var(--inferred)'], ['Surface match', 'var(--weak)'],
+              ['Both channels agree', 'var(--ink-4)']].map(([l, c]) => (
+              <span key={l} className="legend__item">
+                <i style={{ background: c }} />{l}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel__head">
+          <div className="panel__title">Cross-channel signals</div>
+          <div className="panel__sub">
+            {gems.length} gems · {surface.length} surface · {consensus} agreed
+          </div>
+        </div>
+
+        <div className="panel__body">
+          <p className="note">
+            Each candidate is ranked twice, independently — once by BM25 and
+            per-skill lexical coverage, once by sentence embeddings and per-skill
+            semantic inference. Where the two positions diverge, one of the
+            channels is wrong about that person, and it is worth knowing which.
+          </p>
+        </div>
+
+        {gems.length === 0 && surface.length === 0 && (
+          <div className="panel__body" style={{ paddingTop: 0 }}>
+            <p className="note">
+              The channels agree on every candidate in this pool. No one is
+              being rescued or overrated by the wording of their resume.
+            </p>
+          </div>
+        )}
+
+        {gems.map((c) => (
+          <button key={c.doc_id} className="signal signal--gem" onClick={() => onSelect(c)}>
+            <div className="signal__head">
+              <span className="chip chip--inferred">Hidden gem</span>
+              <span className="signal__name">{c.name}</span>
+              <span className="signal__rank num">#{c.rank}</span>
+            </div>
+            <p className="signal__why">
+              Semantic rank #{c.rank_semantic} against lexical rank #{c.rank_lexical}.
+              {' '}{pct(c.primitives.inferred_req_ratio)} of the required skills are
+              demonstrated by the work described without ever being named, so a
+              keyword filter would have dropped this résumé.
+            </p>
+          </button>
+        ))}
+
+        {surface.map((c) => (
+          <button key={c.doc_id} className="signal signal--surface" onClick={() => onSelect(c)}>
+            <div className="signal__head">
+              <span className="chip chip--weak">Surface match</span>
+              <span className="signal__name">{c.name}</span>
+              <span className="signal__rank num">#{c.rank}</span>
+            </div>
+            <p className="signal__why">
+              Lexical rank #{c.rank_lexical} against semantic rank #{c.rank_semantic} — the
+              keyword channel likes this résumé {c.rank_semantic - c.rank_lexical} places more
+              than the embedding channel does. The skills are named; the work behind
+              them is thinner than the naming suggests.
+              {/* Coverage is quoted only when it agrees with the rank gap. The flag
+                  is set on ranks, and on a tight pool the two can point opposite
+                  ways — saying so plainly beats printing a negative lead. */}
+              {c.primitives.lex_cov > c.primitives.sem_cov
+                ? ` Lexical coverage runs ${((c.primitives.lex_cov - c.primitives.sem_cov) * 100).toFixed(0)} points ahead of semantic.`
+                : ' Per-skill coverage is close on both channels, so the gap is one of position rather than degree.'}
+            </p>
+          </button>
+        ))}
+      </div>
+    </>
+  )
+}
 
 /* ══ Fusion inspector ═══════════════════════════════════════════════════ */
 

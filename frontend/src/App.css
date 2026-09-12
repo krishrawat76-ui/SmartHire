@@ -144,7 +144,11 @@
 .inspector {
     border-left: 1px solid var(--line);
     background: var(--surface-2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
+.inspector__body { flex: 1; min-height: 0; overflow-y: auto; }
 
 /* ---- Panels ------------------------------------------------------------- */
 
@@ -274,8 +278,11 @@
 .evbar__seg--missing  { background: var(--missing-line); }
 
 .evbar__legend {
-    display: flex; gap: var(--s3); margin-top: 5px;
+    display: flex; flex-wrap: wrap;
+    column-gap: var(--s3); row-gap: 1px;
+    margin-top: 5px;
     font-family: var(--mono); font-size: 9.5px; color: var(--ink-4);
+    min-width: 0;
 }
 
 /* ---- Chips -------------------------------------------------------------- */
@@ -512,6 +519,167 @@
 .kv__k { color: var(--ink-3); }
 .kv__v { font-family: var(--mono); color: var(--ink); }
 
+/* ---- Charts -------------------------------------------------------------
+   Two rules only: geometry comes from the SVG, colour comes from tokens. */
+
+.chart { width: 100%; max-width: 460px; height: auto; display: block; }
+.chart--radar { max-width: 300px; margin: 0 auto; }
+.chart__grid  { stroke: var(--line); stroke-width: 1; }
+.chart__axis  { stroke: var(--line); stroke-width: 1; }
+.chart__label { fill: var(--ink-4); font-size: 9.5px; font-family: var(--mono); }
+.chart__pt    { cursor: pointer; transition: r var(--fast) var(--ease); }
+.chart__pt:hover { fill-opacity: 1; }
+
+.legend {
+    display: flex; flex-wrap: wrap; gap: var(--s3);
+    margin-top: var(--s2);
+    font-size: 11px; color: var(--ink-3);
+}
+.legend__item { display: flex; align-items: center; gap: 5px; }
+.legend__item i { width: 7px; height: 7px; border-radius: 99px; display: block; }
+
+.contrib { display: flex; height: 15px; border-radius: var(--r-sm); overflow: hidden; }
+.contrib i {
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: .04em;
+    font-style: normal; color: #fff; white-space: nowrap;
+}
+.contrib__k { background: var(--accent); }
+.contrib__m { background: var(--inferred); opacity: .58; }
+
+/* ---- Cross-channel signal cards ---------------------------------------- */
+
+.signal {
+    display: block; width: 100%; text-align: left;
+    padding: var(--s3) var(--s4);
+    border-top: 1px solid var(--line-soft);
+    border-left: 2px solid transparent;
+    background: none; cursor: pointer;
+    transition: background var(--fast) var(--ease);
+}
+.signal:hover { background: var(--surface-2); }
+.signal--gem     { border-left-color: var(--inferred); }
+.signal--surface { border-left-color: var(--weak); }
+
+.signal__head { display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+.signal__name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.signal__rank { font-size: 11px; color: var(--ink-4); margin-left: auto; }
+.signal__why {
+    font-size: 11.5px; color: var(--ink-3);
+    line-height: 1.55; margin-top: 4px;
+}
+
+/* ---- Staged loading ----------------------------------------------------- */
+
+.stage {
+    display: flex; align-items: baseline; gap: var(--s2);
+    font-size: 12.5px; color: var(--ink-2);
+    padding: 3px 0;
+    transition: opacity var(--fast) var(--ease);
+}
+.stage__tick {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--accent); width: 12px; flex: none;
+}
+
+/* ---- Side-by-side diff -------------------------------------------------- */
+
+.diff {
+    display: grid;
+    grid-template-columns: 1fr 96px 1fr;
+    gap: 5px;
+    align-items: center;
+    font-size: 11.5px;
+}
+.diff__who {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-3);
+    padding-bottom: var(--s1);
+    border-bottom: 1px solid var(--line-soft);
+}
+.diff__who--right { text-align: right; }
+.diff__skill { text-align: center; color: var(--ink-4); font-size: 10.5px; }
+.diff__skill--decisive { color: var(--ink); font-weight: 500; }
+.diff .chip { cursor: default; }
+
+
+/* ---- Chat dock ----------------------------------------------------------
+   Pinned to the bottom of the inspector. It is capped rather than allowed to
+   grow, because the evidence above it is the thing being read. */
+
+.chat {
+    flex: none;
+    display: flex; flex-direction: column;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    max-height: 46%;
+}
+
+.chat__head {
+    display: flex; align-items: center; gap: var(--s2);
+    padding: var(--s2) var(--s4);
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--surface-2);
+    flex: none;
+}
+
+.chat__log {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: var(--s3) var(--s4);
+}
+
+.chat__suggest { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+.chat__suggest .btn { font-size: 11.5px; text-align: left; }
+
+.bubble { margin-bottom: var(--s3); max-width: 100%; }
+.bubble--you {
+    margin-left: auto; width: fit-content;
+    background: var(--accent-tint);
+    border: 1px solid var(--accent-line);
+    border-radius: var(--r) var(--r) 2px var(--r);
+    padding: 5px var(--s2);
+}
+.bubble--you .bubble__text { color: var(--accent); font-weight: 500; }
+.bubble--engine {
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r) var(--r) var(--r) 2px;
+    padding: var(--s2);
+}
+.bubble__intent {
+    display: inline-block;
+    font-family: var(--mono); font-size: 9px; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--ink-4);
+    margin-bottom: 3px;
+}
+.bubble__text {
+    font-size: 12px; color: var(--ink); line-height: 1.6;
+    white-space: pre-wrap; word-break: break-word;
+}
+.bubble__refs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--s2); }
+.bubble__refs .chip { cursor: pointer; }
+
+.chat__input {
+    display: flex; gap: var(--s2);
+    padding: var(--s2) var(--s4) var(--s3);
+    border-top: 1px solid var(--line-soft);
+    flex: none;
+}
+.chat__input input {
+    flex: 1; min-width: 0;
+    font: inherit; font-size: 12px;
+    color: var(--ink);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 5px var(--s2);
+}
+.chat__input input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--surface);
+}
+
 /* ---- Responsive --------------------------------------------------------- */
 
 @media (max-width: 1240px) {
@@ -519,7 +687,7 @@
     .inspector { display: none; }
     .workspace--detail { grid-template-columns: minmax(0, 1fr) var(--inspector); }
     .workspace--detail .rail { display: none; }
-    .workspace--detail .inspector { display: block; }
+    .workspace--detail .inspector { display: flex; }
 }
 
 @media (max-width: 860px) {

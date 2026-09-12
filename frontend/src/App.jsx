@@ -20,10 +20,13 @@ import { rescore, poolStats } from './lib/rescore'
 import { useTheme } from './lib/ui'
 import Board from './components/Board'
 import Detail from './components/Detail'
-import { FusionInspector, TaxonomyExplorer, JobAudit, FeedbackView } from './components/Views'
+import ChatDock from './components/Chat'
+import { DiffPanel, SignalsView, FusionInspector, TaxonomyExplorer, JobAudit, FeedbackView }
+  from './components/Views'
 
 const TABS = [
   ['board', 'Shortlist'],
+  ['signals', 'Signals'],
   ['fusion', 'Fusion inspector'],
   ['taxonomy', 'Skill ontology'],
   ['audit', 'JD audit'],
@@ -52,6 +55,8 @@ export default function App() {
 
   const [tab, setTab] = useState('board')
   const [selected, setSelected] = useState(null)
+  // At most two, most-recently-picked wins — a diff of three is a table, not a diff.
+  const [compare, setCompare] = useState([])
 
   const [theme, toggleTheme] = useTheme()
   const fileRef = useRef(null)
@@ -84,6 +89,7 @@ export default function App() {
       setGate(data.meta.gate)
       setBlind(data.meta.blind)
       setSelected(null)
+      setCompare([])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -120,6 +126,16 @@ export default function App() {
       .then((d) => d && setPayload(d))
       .catch(() => {})
   }, [payload, alpha, gate])
+
+  const toggleCompare = useCallback((docId) => {
+    setCompare((prev) => (prev.includes(docId)
+      ? prev.filter((d) => d !== docId)
+      : [...prev, docId].slice(-2)))
+  }, [])
+
+  const comparePair = compare
+    .map((id) => candidates.find((c) => c.doc_id === id))
+    .filter(Boolean)
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') setSelected(null) }
@@ -226,6 +242,11 @@ export default function App() {
                   onClick={() => setTab(id)}>
             {label}
             {id === 'board' && <span className="tab__count">{candidates.length}</span>}
+            {id === 'signals' && (
+              <span className="tab__count">
+                {candidates.filter((c) => c.flag !== 'CONSENSUS').length}
+              </span>
+            )}
             {id === 'audit' && job?.bias && <span className="tab__count">{job.bias.findings.length}</span>}
           </button>
         ))}
@@ -294,8 +315,18 @@ export default function App() {
           {error && <div className="banner banner--error" style={{ marginBottom: 12 }}>{error}</div>}
 
           {tab === 'board' && (
-            <Board candidates={candidates} selected={liveSelected}
-                   onSelect={setSelected} loading={loading} />
+            <>
+              {comparePair.length === 2 && (
+                <DiffPanel a={comparePair[0]} b={comparePair[1]}
+                           onClose={() => setCompare([])} />
+              )}
+              <Board candidates={candidates} selected={liveSelected}
+                     onSelect={setSelected} loading={loading}
+                     compare={compare} onCompare={toggleCompare} />
+            </>
+          )}
+          {tab === 'signals' && (
+            <SignalsView candidates={candidates} selected={liveSelected} onSelect={setSelected} />
           )}
           {tab === 'fusion' && <FusionInspector candidates={candidates} meta={meta} />}
           {tab === 'taxonomy' && <TaxonomyExplorer job={job} candidates={candidates} />}
@@ -305,8 +336,17 @@ export default function App() {
           )}
         </main>
 
+        {/* The inspector is one candidate; the dock underneath is the whole pool.
+            Both are answers about the same ranking, so they share a column —
+            and the dock stays reachable whether or not a row is open. */}
         <aside className="col inspector">
-          <Detail candidate={liveSelected} onClose={() => setSelected(null)} />
+          <div className="inspector__body">
+            <Detail candidate={liveSelected} alpha={alpha} onClose={() => setSelected(null)} />
+          </div>
+          {candidates.length > 0 && (
+            <ChatDock candidates={candidates} alpha={alpha} gate={gate}
+                      onSelect={setSelected} />
+          )}
         </aside>
       </div>
     </div>

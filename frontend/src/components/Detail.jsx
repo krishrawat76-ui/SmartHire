@@ -14,6 +14,7 @@
  */
 
 import { useState } from 'react'
+import { ContribBar, ScoreRadar } from './Charts'
 import { STATUS_HELP, STATUS_LABEL, cls, num, splitAround } from '../lib/ui'
 
 /* ── Ontological path ──────────────────────────────────────────────────── */
@@ -112,7 +113,7 @@ function Cell({ cell, resumeText }) {
   )
 }
 
-function EvidenceView({ candidate }) {
+function EvidenceView({ candidate, alpha }) {
   const cells = [...candidate.primitives.cells].sort(
     (a, b) => (a.tier !== 'REQUIRED') - (b.tier !== 'REQUIRED')
       || b.coverage - a.coverage
@@ -131,6 +132,20 @@ function EvidenceView({ candidate }) {
           ))}
         </div>
       )}
+
+      <div className="panel__body" style={{ paddingTop: 0 }}>
+        <div className="eyebrow" style={{ marginBottom: 5 }}>
+          Where the points came from at α {alpha.toFixed(2)}
+        </div>
+        <ContribBar candidate={candidate} alpha={alpha} />
+        <p className="note" style={{ marginTop: 5 }}>
+          The slider sets the weight; this is what that weight bought. Drag it and
+          the split moves without a network call.
+        </p>
+
+        <div className="eyebrow" style={{ margin: '14px 0 2px' }}>Coverage by area</div>
+        <ScoreRadar candidate={candidate} />
+      </div>
 
       <div className="mrow" style={{ borderTop: '1px solid var(--line)', cursor: 'default' }}>
         <div className="eyebrow">Skill</div>
@@ -385,7 +400,7 @@ const VIEWS = [
   ['code', 'Code'],
 ]
 
-export default function Detail({ candidate, onClose }) {
+export default function Detail({ candidate, alpha, onClose }) {
   const [view, setView] = useState('evidence')
 
   if (!candidate) {
@@ -419,7 +434,7 @@ export default function Detail({ candidate, onClose }) {
         ))}
       </div>
 
-      {view === 'evidence' && <EvidenceView candidate={candidate} />}
+      {view === 'evidence' && <EvidenceView candidate={candidate} alpha={alpha} />}
       {view === 'ramp' && <RampView candidate={candidate} />}
       {view === 'interview' && <InterviewView candidate={candidate} />}
       {view === 'integrity' && <IntegrityView candidate={candidate} />}
